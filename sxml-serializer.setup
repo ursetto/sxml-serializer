@@ -1,0 +1,7 @@
+(compile -s -O2 -d0 sxml-serializer.scm -j sxml-serializer)
+(compile -s -O2 -d0 sxml-serializer.import.scm)
+
+(install-extension 'sxml-serializer
+  `("sxml-serializer.so" "sxml-serializer.import.so")
+  `((version 1.7.0)   ;; CVS version 1.7 Fri Nov 7 08:36:28 2008 UTC
+    )

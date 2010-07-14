@@ -1,0 +1,13 @@
+;; -*- scheme -*-
+
+((synopsis
+   "Serialize SXML to XML and HTML")
+ (author "Dmitry Lizorkin")
+ (license "Public Domain")
+ (doc-from-wiki)
+ (category xml)
+ (files "README.txt"
+        "sxpath.setup"
+        "sxpath.html"
+ 	"chicken"
+	"sxml-tools"))
