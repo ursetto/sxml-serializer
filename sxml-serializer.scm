@@ -1,13 +1,12 @@
 (module sxml-serializer
  (serialize-sxml        ;; looks like elaborate form of keyword processing
 
-  sxml->xml
-  sxml->xml/noindent
-  sxml->html
-  sxml->html/noindent
-
-  display-sxml          ;; stupid name, it displays xml
-  sxml->string
+  ;; These really can be omitted, as they offer virtually no benefit
+  ;; over plain serialize-sxml.
+  ;; sxml->xml
+  ;; sxml->xml/noindent
+  ;; sxml->html
+  ;; sxml->html/noindent
 
   conventional-ns-prefixes
   
@@ -19,7 +18,6 @@
 
 (include "serializer.scm")
 
-(define serialize-sxml srl:parameterizable)
 (define sxml->xml srl:sxml->xml)
 (define sxml->xml/noindent srl:sxml->xml-noindent)
 (define sxml->html srl:sxml->html)
@@ -55,5 +53,33 @@
     (xsl . "http://www.w3.org/1999/XSL/Transform")))
 
 (define conventional-ns-prefixes srl:conventional-ns-prefixes)
+
+
+;; serialize-sxml: replacement for srl:parameterizable using keyword args
+;; instead of 
+;; Currently disallows xml-declaration emission because the interface is silly and
+;; it doesn't provide an "encoding" option, and because if there is a (*PI* xml ...)
+;; in the document it will either emit two, or omit only one.
+(define (serialize-sxml sxml-obj
+                        #!key
+                        (output #f)
+                        (cdata-section-elements '())
+                        (indent "  ")
+                        (method 'xml)
+                        (ns-prefixes conventional-ns-prefixes)
+                        )
+  (let ((omit-xml-declaration #t)       ;; Force omission of xml-declaration
+        (standalone 'omit)
+        (version "1.0"))
+    (if output
+        (srl:display-sxml sxml-obj output
+                          cdata-section-elements indent
+                          method ns-prefixes
+                          omit-xml-declaration standalone version)
+        (srl:sxml->string sxml-obj
+                          cdata-section-elements indent
+                          method ns-prefixes
+                          omit-xml-declaration standalone version)
+        )))
 
 )
