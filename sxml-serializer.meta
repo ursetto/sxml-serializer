@@ -2,12 +2,7 @@
 
 ((synopsis
    "Serialize SXML to XML and HTML")
- (author "Dmitry Lizorkin")
- (license "Public Domain")
+ (author "Dmitry Lizorkin")  ;; port by Jim Ursetto
+ (license "BSD")             ;; Dmitry's code is PD
  (doc-from-wiki)
- (category xml)
- (files "README.txt"
-        "sxpath.setup"
-        "sxpath.html"
- 	"chicken"
-	"sxml-tools"))
+ (category xml))

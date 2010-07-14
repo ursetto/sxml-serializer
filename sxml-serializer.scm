@@ -1,14 +1,17 @@
-(module sxml-serializer
- (serialize-sxml        ;; looks like elaborate form of keyword processing
+;; sxml-serializer -- Serialize SXML to XML and HTML4
+;; Uses public domain code from sxml-tools by Dmitry Lizorkin
+;; Chicken port Copyright (C) 2010 Jim Ursetto.  All Rights Reserved.
+;; License: BSD.
 
-  ;; These really can be omitted, as they offer virtually no benefit
-  ;; over plain serialize-sxml.
+(module sxml-serializer
+ (serialize-sxml
+  conventional-ns-prefixes
+
+  ;; These currently offer little benefit over plain serialize-sxml.
   ;; sxml->xml
   ;; sxml->xml/noindent
   ;; sxml->html
   ;; sxml->html/noindent
-
-  conventional-ns-prefixes
   
   )
 
@@ -54,9 +57,8 @@
 
 (define conventional-ns-prefixes srl:conventional-ns-prefixes)
 
-
 ;; serialize-sxml: replacement for srl:parameterizable using keyword args
-;; instead of 
+;; instead of (k . v) pairs.
 ;; Currently disallows xml-declaration emission because the interface is silly and
 ;; it doesn't provide an "encoding" option, and because if there is a (*PI* xml ...)
 ;; in the document it will either emit two, or omit only one.
