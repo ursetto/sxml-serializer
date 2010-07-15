@@ -16,8 +16,9 @@
   )
 
 (import scheme chicken)
-(require-library srfi-1)
-(import (only srfi-1 filter))
+(require-library srfi-1 srfi-13)
+(import (only srfi-1 filter)
+        (only srfi-13 string-concatenate))
 
 (include "serializer.scm")
 
@@ -27,6 +28,8 @@
 (define sxml->html/noindent srl:sxml->html-noindent)
 (define display-sxml srl:display-sxml)
 (define sxml->string srl:sxml->string)
+
+(define srl:apply-string-append string-concatenate)
 
 ;; override srl:conventional-ns-prefixes so that sxml->xml etc. use the extended list
 (define srl:conventional-ns-prefixes
