@@ -621,6 +621,12 @@
       (string-append prefix-string ":" local-part)
       local-part))
 
+(define (srl:qname->string prefix-string local-part)
+  (if (and prefix-string
+           (not (string=? prefix-string "*default*")))
+      (string-append prefix-string ":" local-part)
+      local-part))
+
 ;-------------------------------------------------
 ; Different types of nodes
 
@@ -650,6 +656,13 @@
 (define (srl:namespace-decl->str-lst prefix-string namespace-uri)
   (list " xmlns:" prefix-string "=\""
         (srl:string->att-value namespace-uri) "\""))
+
+(define (srl:namespace-decl->str-lst prefix-string namespace-uri)
+  (if (string=? prefix-string "*default*")
+      (list " xmlns" "=\""
+            (srl:string->att-value namespace-uri) "\"")
+      (list " xmlns:" prefix-string "=\""
+            (srl:string->att-value namespace-uri) "\"")))
 
 ; According to SXML specification,
 ;  <comment> ::=  ( *COMMENT* "comment string" )
