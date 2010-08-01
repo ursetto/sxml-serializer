@@ -127,7 +127,8 @@
                  (loop (cdr alist) (cons (car alist) res)))))))
 
 ;; Changes: When declaring a namespace prefix, remove any existing matching prefixes
-;; from the declaration list.  Changes marked with [+].
+;; from the declaration list, so new URIs shadow old ones with the same prefix.
+;; Changes are marked with [+].
 (define (srl:construct-start-end-tags
          elem method
          ns-prefix-assig namespace-assoc declared-ns-prefixes)
@@ -222,6 +223,9 @@
 
 ;; Changes: check (allow-prefix-redeclarations) parameter before denying XML prefix
 ;; redeclarations.  Requires declared-ns-prefixes to contain unique keys (prefixes).
+;; Also have empty namespace signal a declaration of "" is required if a non-empty
+;; *default* namespace is defined.  Empty namespace declaration is considered
+;; to be ("*default*" . "") so it overwrites any previous default declaration.
 (define (srl:name->qname-components
          name ns-prefix-assig namespace-assoc declared-ns-prefixes)
   (let ((use-ns-id-or-generate-prefix
@@ -244,8 +248,13 @@
         (n-parts (srl:split-name name)))
     (cond
       ((not (car n-parts))  ; no namespace-id => no namespace
-       (values #f #f (cdr n-parts)  ; name as a string
-               #f))
+       (values "*default*" "" (cdr n-parts)  ; name as a string
+               ;; declaration of empty namespace required if default currently non-empty
+               (let ((def (assoc "*default*" declared-ns-prefixes)))
+                 (and def (not (string=? "" (cdr def))))))
+       ;; (values #f #f (cdr n-parts)  ; name as a string
+       ;;         #f)
+       )
       ((string-ci=? (car n-parts) "xml")  ; reserved XML namespace
        (values (car n-parts) "http://www.w3.org/XML/1998/namespace"
                (cdr n-parts) #f))
