@@ -11,6 +11,7 @@
 (module sxml-serializer
  (serialize-sxml
   conventional-ns-prefixes
+  allow-prefix-redeclarations?
 
   ;; These currently offer little benefit over plain serialize-sxml.
   ;; sxml->xml
@@ -55,8 +56,10 @@
     (slash . "http://purl.org/rss/1.0/modules/slash/")
     (sy . "http://purl.org/rss/1.0/modules/syndication/")
     (taxo . "http://purl.org/rss/1.0/modules/taxonomy/")
+    (thr . "http://purl.org/syndication/thread/1.0")
     (wiki . "http://purl.org/rss/1.0/modules/wiki/")
     (wfw . "http://wellformedweb.org/CommentAPI/")
+    (xhtml . "http://www.w3.org/1999/xhtml")
     (xlink . "http://www.w3.org/1999/xlink")
     (xqx . "http://www.w3.org/2005/XQueryX")
     (xsd . "http://www.w3.org/2001/XMLSchema")
