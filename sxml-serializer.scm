@@ -143,7 +143,7 @@
       (call-with-values
        (lambda ()           
          (srl:name->qname-components  ; element name
-          (car elem) ns-prefix-assig namespace-assoc declared-ns-prefixes))
+          (car elem) ns-prefix-assig namespace-assoc declared-ns-prefixes #f))
        (lambda (elem-prefix elem-uri elem-local elem-decl-required?)
          (let loop ((attrs
                      (reverse
@@ -197,7 +197,7 @@
              (lambda ()
                (srl:name->qname-components
                 (caar attrs)  ; attribute name
-                ns-prefix-assig namespace-assoc declared-ns-prefixes))
+                ns-prefix-assig namespace-assoc declared-ns-prefixes #t))
              (lambda (attr-prefix attr-uri attr-local attr-decl-required?)
                (let ((start-tag
                       (cons
@@ -226,8 +226,10 @@
 ;; Also have empty namespace signal a declaration of "" is required if a non-empty
 ;; *default* namespace is defined.  Empty namespace declaration is considered
 ;; to be ("*default*" . "") so it overwrites any previous default declaration.
+;; Also disallow prefix redeclarations in attributes, avoiding multiple declarations
+;; of the same namespace prefix in one tag.
 (define (srl:name->qname-components
-         name ns-prefix-assig namespace-assoc declared-ns-prefixes)
+         name ns-prefix-assig namespace-assoc declared-ns-prefixes attribute?)
   (let ((use-ns-id-or-generate-prefix
          (lambda (ns-id)
            (if
@@ -248,13 +250,13 @@
         (n-parts (srl:split-name name)))
     (cond
       ((not (car n-parts))  ; no namespace-id => no namespace
-       (values "*default*" "" (cdr n-parts)  ; name as a string
-               ;; declaration of empty namespace required if default currently non-empty
-               (let ((def (assoc "*default*" declared-ns-prefixes)))
-                 (and def (not (string=? "" (cdr def))))))
-       ;; (values #f #f (cdr n-parts)  ; name as a string
-       ;;         #f)
-       )
+       (if attribute?
+           (values #f #f (cdr n-parts)  ; name as a string
+                   #f)
+           (values "*default*" "" (cdr n-parts)  ; name as a string
+                   ;; declaration of empty namespace required if default currently non-empty
+                   (let ((def (assoc "*default*" declared-ns-prefixes)))
+                     (and def (not (string=? "" (cdr def))))))))
       ((string-ci=? (car n-parts) "xml")  ; reserved XML namespace
        (values (car n-parts) "http://www.w3.org/XML/1998/namespace"
                (cdr n-parts) #f))
@@ -281,7 +283,8 @@
                  => (lambda (pair)
                       ; A candidate namespace prefix is supplied from the user
                       (let ((candidate (symbol->string (car pair))))
-                        (if (and (not (allow-prefix-redeclarations?))
+                        (if (and (or attribute?
+                                     (not (allow-prefix-redeclarations?)))
                                  (assoc candidate declared-ns-prefixes))
                             ;; The prefix already bound to a different namespace
                             ;; Avoid XML prefix re-declaration
