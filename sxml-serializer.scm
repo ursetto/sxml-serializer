@@ -217,17 +217,21 @@
                       start-tag)
                   ns-prefix-assig
                   namespace-assoc
-                  (if attr-decl-required?                      
-                      (cons (cons attr-prefix attr-uri) declared-ns-prefixes)
+                  (if attr-decl-required?
+                      ;; alist-update not required if attributes cannot redeclare any prefixes,
+                      ;; but to be on the safe side...
+                      (alist-update attr-prefix attr-uri declared-ns-prefixes string=?)
                       declared-ns-prefixes))))))))))))
 
 ;; Changes: check (allow-prefix-redeclarations) parameter before denying XML prefix
 ;; redeclarations.  Requires declared-ns-prefixes to contain unique keys (prefixes).
-;; Also have empty namespace signal a declaration of "" is required if a non-empty
+;; - Also have empty namespace signal a declaration of "" is required if a non-empty
 ;; *default* namespace is defined.  Empty namespace declaration is considered
 ;; to be ("*default*" . "") so it overwrites any previous default declaration.
-;; Also disallow prefix redeclarations in attributes, avoiding multiple declarations
-;; of the same namespace prefix in one tag.
+;; - Also disallow prefix redeclarations in attributes, avoiding multiple declarations
+;; of the same namespace prefix in one tag.  An unintended consequence is that you
+;; can't then redeclare a prefix declared in ANY parent; to fix this we'd have
+;; to track namespaces assigned per-attribute.
 (define (srl:name->qname-components
          name ns-prefix-assig namespace-assoc declared-ns-prefixes attribute?)
   (let ((use-ns-id-or-generate-prefix
