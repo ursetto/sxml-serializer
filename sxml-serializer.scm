@@ -5,8 +5,12 @@
 
 ;; Changes over stock:
 ;; Add allow-prefix-redeclarations? option.  Allows user to provide multiple namespace
-;;   URIs that map to the same prefix.
-;; Add fake namespace *default*.  
+;;   URIs that map to the same prefix in ns-prefixes.  Has no effect in attributes.
+;;   Currently, does not permit redeclarations in *NAMESPACES* except via original-prefix
+;;   (which is the same as using ns-prefixes).
+;; Add fake namespace prefix *default*.  Namespace URIs associated with this prefix
+;; are assigned the default namespace xmlns="..." and elements with
+;; no namespace reset the default to xmlns="".
 
 (module sxml-serializer
  (serialize-sxml
@@ -67,7 +71,7 @@
     (xsl . "http://www.w3.org/1999/XSL/Transform")))
 
 (define conventional-ns-prefixes srl:conventional-ns-prefixes)
-(define allow-prefix-redeclarations? (make-parameter #f))
+(define allow-prefix-redeclarations? (make-parameter #t))  ; use #f for stock compatibility
 
 ;; serialize-sxml: replacement for srl:parameterizable using keyword args
 ;; instead of (k . v) pairs.
@@ -81,11 +85,11 @@
                         (indent "  ")
                         (method 'xml)
                         (ns-prefixes conventional-ns-prefixes)
-                        (allow-prefix-redeclarations #f))  ; compatibility
+                        (allow-prefix-redeclarations (allow-prefix-redeclarations?)))
   (let ((omit-xml-declaration #t)       ;; Force omission of xml-declaration
         (standalone 'omit)
         (version "1.0"))
-    (parameterize ((allow-prefix-redeclarations? allow-prefix-redeclarations))
+    (parameterize ((allow-prefix-redeclarations? allow-prefix-redeclarations)) ; redundant?
       (if output
           (srl:display-sxml sxml-obj output
                             cdata-section-elements indent
