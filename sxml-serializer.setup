@@ -3,5 +3,5 @@
 
 (install-extension 'sxml-serializer
   `("sxml-serializer.so" "sxml-serializer.import.so")
-  `((version 0.2)   ;; CVS version 1.7 Fri Nov 7 08:36:28 2008 UTC
+  `((version 0.3)   ;; CVS version 1.7 Fri Nov 7 08:36:28 2008 UTC
     ))
