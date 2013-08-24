@@ -308,6 +308,24 @@
               #t  ; in any case, prefix declaration is required
               )))))))))
 
+;; Changes: accept nulls, chars, and symbols as SXML nodes.  For some
+;; reason numbers and bools were already accepted, which makes me think
+;; this was an oversight.
+(define (srl:atomic->string obj)
+  (cond
+    ((or (pair? obj)  ; non-atomic type
+         (string? obj)) obj)
+    ((null? obj)   "")
+    ((char? obj)   (##sys#char->utf8-string obj))
+    ((symbol? obj) (symbol->string obj))
+    ((number? obj) (number->string obj))
+    ((boolean? obj)
+     (if obj "true" "false"))
+    (else  ; unexpected type
+     ; ATTENTION: should probably raise an error here
+     obj)))
+
+
 )
 
 
