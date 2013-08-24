@@ -426,6 +426,117 @@
                      (lambda (x) (display x port))
                      end-tag))))))))))))))
 
+;; Changes: (car node) is only treated as a tag when it is a symbol.
+;; For indentation purposes we also treat a list starting with a
+;; text node as a text node (to avoid ("foo") having extraneous
+;; whitespace added around it).
+;; This is almost a cut and paste of srl:display-node-out-recursive.
+(define (srl:node->nested-str-lst-recursive
+         node method
+         ns-prefix-assig namespace-assoc declared-ns-prefixes
+         indentation space-preserve?
+         cdata-section-elements text-node-handler)
+  (cond
+   ((not (pair? node))                  ; text node
+    (text-node-handler (srl:atomic->string node)))
+   ((not (symbol? (car node)))          ;; ** change
+    (map
+     (lambda (kid)
+       (srl:node->nested-str-lst-recursive
+        kid method
+        ns-prefix-assig namespace-assoc declared-ns-prefixes
+        indentation space-preserve?
+        cdata-section-elements text-node-handler))
+     node))
+   (else
+    (case (car node)  ; node name
+      ((*COMMENT*)
+       (srl:comment->str-lst node))
+      ((*PI*)
+       (srl:processing-instruction->str-lst node method))
+      ((&)
+       (srl:shtml-entity->char-data node))
+      ((*DECL*)  ; recovering for non-SXML nodes
+       '())
+      (else  ; otherwise - an element node
+       (call-with-values
+        (lambda ()
+          (srl:construct-start-end-tags
+           node method
+           ns-prefix-assig namespace-assoc declared-ns-prefixes))
+        (lambda (start-tag end-tag
+                           ns-prefix-assig namespace-assoc declared-ns-prefixes)
+          (if
+           (not end-tag)  ; empty element => recursion stops
+           start-tag
+           (let ((space-preserve?
+                  (srl:update-space-specifier node space-preserve?))
+                 (text-node-handler
+                  (cond
+                    ((memq (car node) cdata-section-elements)
+                     srl:string->cdata-section)
+                    ((and (eq? method 'html)
+                          (srl:member-ci (symbol->string (car node))
+                                         '("script" "style")))
+                     ; No escaping for strings inside these HTML elements
+                     (lambda (str) str))
+                    (else
+                     srl:string->char-data)))
+                 (content ((srl:select-kids
+                            (lambda (node)  ; TODO: support SXML entities
+                              (not (and (pair? node)
+                                        (memq (car node) '(@ @@ *ENTITY*))))))
+                           node)))
+             (call-with-values
+              (lambda ()
+                (cond
+                  ((or (not indentation)
+                       (and (eq? method 'html)
+                            (srl:member-ci
+                             (symbol->string (car node))
+                             '("pre" "script" "style" "textarea"))))
+                   ; No indent - on this level and subsequent levels
+                   (values #f #f))
+                  ((or space-preserve?
+                       (srl:mem-pred  ; at least a single text node
+                        (lambda (node)
+                          (or (not (pair? node))
+                              (not (symbol? (car node)))))  ;; ** change
+                        content))
+                   ; No indent on this level, possible indent on nested levels
+                   (values #f indentation))
+                  (else
+                   (values (cons srl:newline indentation)
+                           (cons (car indentation) indentation)))))
+              (lambda (indent-here indent4recursive)
+                (if
+                 indent-here
+                 (append
+                  start-tag
+                  (map
+                   (lambda (kid)
+                     (list
+                      indent-here
+                      (srl:node->nested-str-lst-recursive
+                       kid method
+                       ns-prefix-assig namespace-assoc declared-ns-prefixes
+                       indent4recursive space-preserve?
+                       cdata-section-elements text-node-handler)))
+                   content)
+                  (cons srl:newline
+                        (cons (cdr indentation) end-tag)))
+                 (append
+                  start-tag
+                  (map
+                   (lambda (kid)
+                     (srl:node->nested-str-lst-recursive
+                      kid method
+                      ns-prefix-assig namespace-assoc declared-ns-prefixes
+                      indent4recursive space-preserve?
+                      cdata-section-elements text-node-handler))
+                   content)
+                  end-tag)))))))))))))
+
 ;; Changes: accept nulls, chars, and symbols as SXML nodes.  For some
 ;; reason numbers and bools were already accepted, which makes me think
 ;; this was an oversight.
