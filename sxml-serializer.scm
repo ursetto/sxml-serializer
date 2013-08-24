@@ -308,6 +308,122 @@
               #t  ; in any case, prefix declaration is required
               )))))))))
 
+;; Changes: (car node) is only treated as a tag when it is a symbol.
+;; Issue: compare indentation of
+;;        (serialize-sxml '(*TOP* (p ("foo") (b "hi"))) output: (current-output-port))
+;;        (serialize-sxml '(*TOP* (p "foo" (b "hi"))) output: (current-output-port))
+(define (srl:display-node-out-recursive
+         node port method
+         ns-prefix-assig namespace-assoc declared-ns-prefixes
+         indentation space-preserve?
+         cdata-section-elements text-node-handler)
+  (cond
+   ((not (pair? node))                  ; text node
+    (display (text-node-handler (srl:atomic->string node)) port))
+   ((not (symbol? (car node)))          ;; ** change
+    (for-each
+     (lambda (kid)
+       (srl:display-node-out-recursive
+        kid port method
+        ns-prefix-assig namespace-assoc declared-ns-prefixes
+        indentation space-preserve?
+        cdata-section-elements text-node-handler))
+     node))
+   (else
+    (case (car node)  ; node name
+      ((*COMMENT*)
+       (for-each
+        (lambda (x) (display x port))
+        (srl:comment->str-lst node)))
+      ((*PI*)
+       (for-each
+        (lambda (x) (display x port))
+        (srl:processing-instruction->str-lst node method)))
+      ((&)
+       (display (srl:shtml-entity->char-data node) port))
+      ((*DECL*)  ; recovering for non-SXML nodes
+       #f)
+      (else  ; otherwise - an element node
+       (call-with-values
+        (lambda ()
+          (srl:construct-start-end-tags
+           node method
+           ns-prefix-assig namespace-assoc declared-ns-prefixes))
+        (lambda (start-tag end-tag
+                           ns-prefix-assig namespace-assoc declared-ns-prefixes)
+          (begin
+            (srl:display-fragments-2nesting start-tag port)
+            (if
+             end-tag  ; there exists content
+             (let ((space-preserve?
+                    (srl:update-space-specifier node space-preserve?))
+                   (text-node-handler
+                    (cond
+                      ((memq (car node) cdata-section-elements)
+                       srl:string->cdata-section)
+                      ((and (eq? method 'html)
+                            (srl:member-ci (symbol->string (car node))
+                                           '("script" "style")))
+                       ; No escaping for strings inside these HTML elements
+                       (lambda (str) str))
+                      (else
+                       srl:string->char-data)))
+                   (content ((srl:select-kids
+                              (lambda (node)  ; TODO: support SXML entities
+                                (not (and (pair? node)
+                                          (memq (car node) '(@ @@ *ENTITY*))))))
+                             node)))
+               (call-with-values
+                (lambda ()
+                  (cond
+                    ((or (not indentation)
+                         (and (eq? method 'html)
+                              (srl:member-ci
+                               (symbol->string (car node))
+                               '("pre" "script" "style" "textarea"))))
+                     ; No indent - on this level and subsequent levels
+                     (values #f #f))
+                    ((or space-preserve?
+                         (srl:mem-pred  ; at least a single text node
+                          (lambda (node) (not (pair? node)))
+                          content))
+                     ; No indent on this level, possible indent on nested levels
+                     (values #f indentation))
+                    (else
+                     (values (cons srl:newline indentation)
+                             (cons (car indentation) indentation)))))
+                (lambda (indent-here indent4recursive)
+                  (begin
+                    (for-each  ; display content
+                     (if
+                      indent-here
+                      (lambda (kid)
+                        (begin
+                          (for-each
+                           (lambda (x) (display x port))
+                           indent-here)
+                          (srl:display-node-out-recursive
+                           kid port method
+                           ns-prefix-assig namespace-assoc declared-ns-prefixes
+                           indent4recursive space-preserve?
+                           cdata-section-elements text-node-handler)))
+                      (lambda (kid)
+                        (srl:display-node-out-recursive
+                         kid port method
+                         ns-prefix-assig namespace-assoc declared-ns-prefixes
+                         indent4recursive space-preserve?
+                         cdata-section-elements text-node-handler)))
+                     content)
+                    (if indent-here
+                        (begin
+                          (display srl:newline port)
+                          (for-each
+                           (lambda (x) (display x port))
+                           (cdr indentation))))
+                    (for-each
+                     (lambda (x) (display x port))
+                     end-tag))))))))))))))
+
 ;; Changes: accept nulls, chars, and symbols as SXML nodes.  For some
 ;; reason numbers and bools were already accepted, which makes me think
 ;; this was an oversight.
