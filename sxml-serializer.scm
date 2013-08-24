@@ -309,9 +309,9 @@
               )))))))))
 
 ;; Changes: (car node) is only treated as a tag when it is a symbol.
-;; Issue: compare indentation of
-;;        (serialize-sxml '(*TOP* (p ("foo") (b "hi"))) output: (current-output-port))
-;;        (serialize-sxml '(*TOP* (p "foo" (b "hi"))) output: (current-output-port))
+;; For indentation purposes we also treat a list starting with a
+;; text node as a text node (to avoid ("foo") having extraneous
+;; whitespace added around it).
 (define (srl:display-node-out-recursive
          node port method
          ns-prefix-assig namespace-assoc declared-ns-prefixes
@@ -385,7 +385,9 @@
                      (values #f #f))
                     ((or space-preserve?
                          (srl:mem-pred  ; at least a single text node
-                          (lambda (node) (not (pair? node)))
+                          (lambda (node)
+                            (or (not (pair? node))
+                                (not (symbol? (car node)))))   ;; ** change
                           content))
                      ; No indent on this level, possible indent on nested levels
                      (values #f indentation))
