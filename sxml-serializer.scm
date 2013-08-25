@@ -89,7 +89,9 @@
   (let ((omit-xml-declaration #t)       ;; Force omission of xml-declaration
         (standalone 'omit)
         (version "1.0")
-        (ns-prefixes (append ns-prefixes '((*default* . "")))) ;; Don't prefix "" URIs
+        ;; Don't prefix "" URIs.  Could go in conventional-ns-prefixes instead,
+        ;; but overriding ns-prefixes would kill that behavior.
+        (ns-prefixes (append ns-prefixes '((*default* . ""))))
         )
     (parameterize ((allow-prefix-redeclarations? allow-prefix-redeclarations)) ; redundant?
       (if output
@@ -536,6 +538,124 @@
                       cdata-section-elements text-node-handler))
                    content)
                   end-tag)))))))))))))
+
+;; Changes: Declare the empty ("") namespace URI upfront so we do
+;;          not get a spurious xmlns="" on the first unprefixed elt.
+;; WARNING: *default* must be added to ns-prefixes, but this is done
+;;          only in serialize-sxml and theoretically there are other
+;;          entry points to this procedure (though not in practice,
+;;          as the module hides them).
+;;   Therefore, srl:top->nested-str-lst and srl:display-top-out
+;;   should probably take a declared-ns-prefixes argument so that
+;;   *default* is only automatically declared when it's
+;;   already in ns-prefixes.
+(define (srl:top->nested-str-lst doc
+                                 cdata-section-elements indent
+                                 method ns-prefix-assig
+                                 omit-xml-declaration? standalone version)
+  (let* ((namespace-assoc (srl:ns-assoc-for-top doc))
+         (declared-ns-prefixes '(("*default*" . "")))        ;; [+]
+         (ns-prefix-assig
+          (append
+           (srl:extract-original-prefix-binding namespace-assoc)
+           ns-prefix-assig))
+         (serialized-content
+          (map
+           (if
+            indent  ; => output each member from the newline
+            (let ((indentation (list indent)))  ; for nested elements
+              (lambda (kid)
+                (list
+                 srl:newline
+                 (srl:node->nested-str-lst-recursive
+                  kid method
+                  ns-prefix-assig namespace-assoc declared-ns-prefixes
+                  indentation #f
+                  cdata-section-elements srl:string->char-data))))
+            (lambda (kid)
+              (srl:node->nested-str-lst-recursive
+               kid method
+               ns-prefix-assig namespace-assoc declared-ns-prefixes
+               indent #f
+               cdata-section-elements srl:string->char-data)))
+           ((srl:select-kids  ; document node content
+             (lambda (node)  ; TODO: support SXML entities
+               (not (and
+                     (pair? node) (memq (car node) '(@ @@ *ENTITY*))))))
+            doc))))
+    (if (or (eq? method 'html) omit-xml-declaration?)
+        (if (and indent (not (null? serialized-content)))
+            ; Remove the starting newline
+            ; ATTENTION: beware of `Gambit cadar bug':
+            ; http://mailman.iro.umontreal.ca/pipermail/gambit-list/
+            ;   2005-July/000315.html
+            (cons (cadar serialized-content) (cdr serialized-content))
+            serialized-content)
+        (list (srl:make-xml-decl version standalone) serialized-content))))
+
+(define (srl:display-top-out doc port
+                             cdata-section-elements indent
+                             method ns-prefix-assig
+                             omit-xml-declaration? standalone version)  
+  (let ((no-xml-decl?  ; no XML declaration was displayed?
+         (if (not (or (eq? method 'html) omit-xml-declaration?))
+             (begin
+               (for-each  ; display xml declaration
+                (lambda (x) (display x port))
+                (srl:make-xml-decl version standalone))
+               #f)
+             #t))
+        (content  ; document node content
+         ((srl:select-kids
+           (lambda (node)  ; TODO: support SXML entities
+             (not (and
+                   (pair? node) (memq (car node) '(@ @@ *ENTITY*))))))
+          doc))
+        (namespace-assoc (srl:ns-assoc-for-top doc))
+        (declared-ns-prefixes '(("*default*" . ""))))      ; [+]
+    (let ((ns-prefix-assig
+           (append
+            (srl:extract-original-prefix-binding namespace-assoc)
+            ns-prefix-assig)))
+      (cond
+        ((null? content)  ; generally a rare practical situation
+         #t)  ; nothing more to do
+        ((and indent no-xml-decl?)
+         ; We'll not display newline before (car content)
+         (let ((indentation (list indent)))  ; for nested elements
+           (for-each
+            (lambda (kid put-newline?)
+              (begin
+                (if put-newline?
+                    (display srl:newline port))
+                (srl:display-node-out-recursive
+                 kid port method
+                 ns-prefix-assig namespace-assoc declared-ns-prefixes
+                 indentation #f
+                 cdata-section-elements srl:string->char-data)))
+            content
+            ; After sequence normalization, content does not contain #f
+            (cons #f (cdr content)))))
+        (else
+         (for-each
+          (if
+           indent  ; => output each member from the newline
+           (let ((indentation (list indent)))  ; for nested elements
+             (lambda (kid)
+               (begin
+                 (display srl:newline port)
+                 (srl:display-node-out-recursive
+                  kid port method
+                  ns-prefix-assig namespace-assoc declared-ns-prefixes
+                  indentation #f
+                  cdata-section-elements srl:string->char-data))))
+           (lambda (kid)
+             (srl:display-node-out-recursive
+              kid port method
+              ns-prefix-assig namespace-assoc declared-ns-prefixes
+              indent #f
+              cdata-section-elements srl:string->char-data)))
+          content))))))
 
 ;; Changes: accept nulls, chars, and symbols as SXML nodes.  For some
 ;; reason numbers and bools were already accepted, which makes me think
