@@ -260,27 +260,25 @@
                     candidate))))))
         (n-parts (srl:split-name name)))
     (cond
-      ((not (car n-parts))  ; no namespace-id => no namespace
-       (if attribute?
-           (values #f #f (cdr n-parts)  ; name as a string
-                   #f)
-           (values "*default*" "" (cdr n-parts)  ; name as a string
-                   ;; declaration of empty namespace required if default currently non-empty
-                   (let ((def (assoc "*default*" declared-ns-prefixes)))
-                     (and def (not (string=? "" (cdr def))))))))
-      ((string-ci=? (car n-parts) "xml")  ; reserved XML namespace
+      ((and attribute?
+            (not (car n-parts)))         ; no namespace-id => no namespace
+       (values #f #f (cdr n-parts)       ; name as a string
+               #f))
+      ((and (car n-parts)
+            (string-ci=? (car n-parts) "xml")) ; reserved XML namespace
        (values (car n-parts) "http://www.w3.org/XML/1998/namespace"
                (cdr n-parts) #f))
       (else
        (call-with-values
         (lambda ()
-          (cond
-            ((assq (string->symbol (car n-parts))  ; suppose a namespace-id
-                   namespace-assoc)
-             => (lambda (lst)
-                  (values (cadr lst) (car n-parts))))
-            (else  ; first part of a name is a namespace URI
-             (values (car n-parts) #f))))
+          (let ((nid (or (car n-parts) "*default*")))
+            (cond
+             ((assq (string->symbol nid) ; suppose a namespace-id
+                    namespace-assoc)
+              => (lambda (lst)
+                   (values (cadr lst) nid)))
+             (else           ; first part of a name is a namespace URI
+              (values (or (car n-parts) "") #f)))))
         (lambda (namespace-uri ns-id)
           (cond
             ((srl:assoc-cdr-string= namespace-uri declared-ns-prefixes)

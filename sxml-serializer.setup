@@ -1,4 +1,4 @@
-(compile -s -O2 -d0 sxml-serializer.scm -j sxml-serializer)
+(compile -s -O2 -d2 sxml-serializer.scm -j sxml-serializer)
 (compile -s -O2 -d0 sxml-serializer.import.scm)
 
 (install-extension 'sxml-serializer
