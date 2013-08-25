@@ -304,7 +304,9 @@
                             (use-ns-id-or-generate-prefix ns-id)
                             candidate))))
                 (else
-                 (use-ns-id-or-generate-prefix ns-id)))
+                 (if (and ns-id (allow-prefix-redeclarations?))
+                     ns-id
+                     (use-ns-id-or-generate-prefix ns-id))))
               namespace-uri
               (cdr n-parts)
               #t  ; in any case, prefix declaration is required
