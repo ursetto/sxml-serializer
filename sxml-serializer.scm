@@ -88,7 +88,9 @@
                         (allow-prefix-redeclarations (allow-prefix-redeclarations?)))
   (let ((omit-xml-declaration #t)       ;; Force omission of xml-declaration
         (standalone 'omit)
-        (version "1.0"))
+        (version "1.0")
+        (ns-prefixes (append ns-prefixes '((*default* . "")))) ;; Don't prefix "" URIs
+        )
     (parameterize ((allow-prefix-redeclarations? allow-prefix-redeclarations)) ; redundant?
       (if output
           (srl:display-sxml sxml-obj output
